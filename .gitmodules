@@ -1,0 +1,3 @@
+[submodule "textpow"]
+	path = textpow
+	url = ./textpow
