@@ -1,8 +1,10 @@
-$LOAD_PATH.unshift 'textpow/lib'
-require 'textpow'
+$LOAD_PATH.unshift "textpow/lib"
+require "textpow"
 
 $doc_id = 0xff
 $block_id = 0xff
+
+# line_nr here should be zero based
 
 class LineProcessor
   class Tag
@@ -18,7 +20,7 @@ class LineProcessor
     @spans = []
   end
 
-  def open_tag name, position
+  def open_tag(name, position)
     t = Tag.new
     t.tag = name
     t.start = position
@@ -27,7 +29,7 @@ class LineProcessor
     @spans << t
   end
 
-  def close_tag name, position
+  def close_tag(name, position)
     if @stack.length() > 0
       last = @stack.last
       last.end = position
@@ -35,20 +37,19 @@ class LineProcessor
     end
   end
 
-  def new_line line
+  def new_line(line)
     @stack = []
     @spans = []
   end
 
-  def start_parsing name
+  def start_parsing(name)
   end
 
-  def end_parsing name
+  def end_parsing(name)
   end
 end
 
 class Doc
-
   class Block
     attr_accessor :id
     attr_accessor :dirty
@@ -68,6 +69,7 @@ class Doc
   end
 
   attr_accessor :id
+  attr_accessor :syntax
   attr_accessor :blocks
 
   attr_accessor :open_block
@@ -95,7 +97,7 @@ class Doc
       return nil
     end
 
-    block_at(line_nr-1)
+    block_at(line_nr - 1)
   end
 
   def next_block(line_nr)
@@ -103,7 +105,7 @@ class Doc
       return nil
     end
 
-    block_at(line_nr+1)
+    block_at(line_nr + 1)
   end
 
   def insert_block(line_nr)
@@ -139,21 +141,65 @@ def highlight_line(doc, line_nr, line, syntax, processor)
   # puts "#{block} next:#{next_block} prev:#{previous_block}"
 
   stack = nil
-  if previous_block.nil? or previous_block.parser_state.nil? 
-    stack = [[syntax, nil]] 
+  if previous_block.nil? or previous_block.parser_state.nil?
+    stack = [[syntax, nil]]
   else
     stack = previous_block.parser_state
   end
 
-  syntax.parse_line_by_line(stack, line, processor)
-  # block.parser_state = []
-  top, match = stack.last
-  block.parser_state = [[syntax, nil], [top, match]] 
-  # stack.clone
+  l = "#{line}\n"
+  syntax.parse_line_by_line(stack, l, processor)
+  
+  # top, match = stack.last
+  # block.parser_state = [[syntax, nil], [top, match]]
+  # # block.parser_state = []
+  block.parser_state = stack.clone
 
   # save open comment and open string
   # invalidate next block on changed comment and string if necessary
 
   block.dirty = false
   block
+end
+
+def highlight_order_spans(spans, length)
+  res = []
+
+  # todo
+  # supposedly text format is evaluated ehere
+
+  for i in 0..length
+    t = nil
+
+    spans.each do |s|
+      if s.start <= i and i <= s.end
+        t = s
+      end
+    end
+
+    if t.nil? or t.tag.nil?
+      next
+    end
+
+    tt = LineProcessor::Tag.new
+    tt.tag = t.tag
+    tt.start = t.start
+    tt.end = t.end
+
+    if res.length() > 0
+      if res.last.tag == tt.tag
+        res.last.end = t.end
+        tt = nil
+      end
+    end
+
+    if not tt.nil?
+      if res.length() > 0
+        res.last.end = i
+      end
+      res << tt
+    end
+  end
+
+  res
 end
