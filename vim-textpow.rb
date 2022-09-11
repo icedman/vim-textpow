@@ -127,9 +127,13 @@ def get_doc(n)
   $doc_buffers[n]
 end
 
-def highlight_current_buffer
+def highlight_current_buffer make_dirty = false
   buf = Vim::Buffer.current
   doc = get_doc(buf.number)
+
+  if make_dirty
+    doc.make_dirty
+  end
 
   if doc.syntax.nil?
     doc.syntax = Textpow.syntax_from_filename(buf.name)
@@ -172,7 +176,7 @@ def update_current_buffer
   highlight_current_buffer
 end
 
-Vim.command('au BufEnter * :ruby highlight_current_buffer')
+Vim.command('au BufEnter * :ruby highlight_current_buffer true')
 Vim.command('au CursorMoved,CursorMovedI * :ruby highlight_current_buffer')
 Vim.command('au TextChanged,TextChangedI * :ruby update_current_buffer')
 
