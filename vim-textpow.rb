@@ -1,44 +1,46 @@
-require "./highlight.rb"
+# frozen_string_literal: true
+
+require './highlight'
 
 # $debug = true
 $doc_buffers = {}
 $props = {}
 
 $scope_hl_map = [
-  ["type", "StorageClass"],
-  ["storage.type", "Identifier"],
-  ["constant", "Constant"],
-  ["constant.numeric", "Number"],
-  ["constant.character", "Character"],
-  ["primitive", "Boolean"],
-  ["variable", "StorageClass"],
-  ["keyword", "Define"],
-  ["declaration", "Conditional"],
-  ["control", "Conditional"],
-  ["operator", "Operator"],
-  ["directive", "PreProc"],
-  ["preprocessor", "Boolean"],
-  ["macro", "Boolean"],
-  ["require", "Include"],
-  ["import", "Include"],
-  ["function", "Function"],
-  ["struct", "Structure"],
-  ["class", "Structure"],
-  ["modifier", "Boolean"],
-  ["namespace", "StorageClass"],
-  ["scope", "StorageClass"],
-  ["name.type", "StorageClass"],
+  %w[type StorageClass],
+  ['storage.type', 'Identifier'],
+  %w[constant Constant],
+  ['constant.numeric', 'Number'],
+  ['constant.character', 'Character'],
+  %w[primitive Boolean],
+  %w[variable StorageClass],
+  %w[keyword Define],
+  %w[declaration Conditional],
+  %w[control Conditional],
+  %w[operator Operator],
+  %w[directive PreProc],
+  %w[preprocessor Boolean],
+  %w[macro Boolean],
+  %w[require Include],
+  %w[import Include],
+  %w[function Function],
+  %w[struct Structure],
+  %w[class Structure],
+  %w[modifier Boolean],
+  %w[namespace StorageClass],
+  %w[scope StorageClass],
+  ['name.type', 'StorageClass'],
   # [ "name.type", "Variable" ],
-  ["tag", "Tag"],
-  ["name.tag", "StorageClass"],
-  ["attribute", "StorageClass"],
+  %w[tag Tag],
+  ['name.tag', 'StorageClass'],
+  %w[attribute StorageClass],
   # [ "attribute", "Variable" ],
-  ["property", "StorageClass"],
+  %w[property StorageClass],
   # [ "property", "Variable" ],
-  ["heading", "markdownH1"],
-  ["string", "String"],
-  ["string.other", "Label"],
-  ["comment", "Comment"],
+  %w[heading markdownH1],
+  %w[string String],
+  ['string.other', 'Label'],
+  %w[comment Comment]
 ]
 
 # line_nr should be zero based
@@ -53,26 +55,22 @@ def highlight_lines(doc, lines, ls, syntax, processor)
     n = line_nr + 1
 
     within_comment = doc.is_block_within_comment(line_nr)
-    if block.was_within_comment != within_comment
-      block.make_dirty
-    end
+    block.make_dirty if block.was_within_comment != within_comment
 
     if block.dirty
-      Vim::command("call prop_clear(#{n})")
+      Vim.command("call prop_clear(#{n})")
       highlight_line(doc, line_nr, line, syntax, processor)
 
       spans = []
-      if not $debug
-        spans = processor.spans
-      end
+      spans = processor.spans unless $debug
 
       spans = highlight_order_spans(spans, line.length)
 
       # special comment block handling
-      if spans.length == 0 and within_comment
+      if spans.length.zero? && within_comment
         spans = []
         t = LineProcessor::Tag.new
-        t.tag = "comment.begin"
+        t.tag = 'comment.begin'
         t.comment_begin = true
         t.start = 0
         t.end = line.length
@@ -81,7 +79,7 @@ def highlight_lines(doc, lines, ls, syntax, processor)
 
       block.was_within_comment = within_comment
 
-      # todo .. dirty-up comment blocks
+      # TODO: .. dirty-up comment blocks
 
       block.spans = spans
 
@@ -91,19 +89,17 @@ def highlight_lines(doc, lines, ls, syntax, processor)
 
         hl = nil
         $scope_hl_map.each do |pair|
-          if t.tag.include? pair[0]
-            hl = pair[1]
-          end
+          hl = pair[1] if t.tag.include? pair[0]
         end
 
-        if hl
-          if $props[hl].nil?
-            Vim::command("call prop_type_add('#{hl}', { 'highlight': '#{hl}', 'priority': 0 })")
-            $props[hl] = true
-          end
+        next unless hl
 
-          Vim::command("call prop_add(#{n},#{start}, { 'length': #{len}, 'type': '#{hl}'})")
+        if $props[hl].nil?
+          Vim.command("call prop_type_add('#{hl}', { 'highlight': '#{hl}', 'priority': 0 })")
+          $props[hl] = true
         end
+
+        Vim.command("call prop_add(#{n},#{start}, { 'length': #{len}, 'type': '#{hl}'})")
       end
     end
     line_nr += 1
@@ -111,37 +107,29 @@ def highlight_lines(doc, lines, ls, syntax, processor)
 end
 
 def get_doc(n)
-  if $doc_buffers[n].nil?
-    $doc_buffers[n] = Doc.new
-  end
-  return $doc_buffers[n]
+  $doc_buffers[n] = Doc.new if $doc_buffers[n].nil?
+  $doc_buffers[n]
 end
 
-def highlight_current_buffer()
-  buf = Vim::Buffer.current()
+def highlight_current_buffer
+  buf = Vim::Buffer.current
   doc = get_doc(buf.number)
 
   if doc.syntax.nil?
-    ext = "?"
-    fnr = buf.name.split(".")
-    if fnr.length > 0
-      ext = fnr.last
-    end
+    ext = '?'
+    fnr = buf.name.split('.')
+    ext = fnr.last if fnr.length.positive?
     doc.syntax = Textpow.syntax(ext)
-    if not doc.syntax
-      doc.syntax = false
-    end
+    doc.syntax = false unless doc.syntax
   end
 
-  if doc.syntax == false
-    return
-  end
+  return if doc.syntax == false
 
-  if $debug
-    processor = Textpow::DebugProcessor.new
-  else
-    processor = LineProcessor.new
-  end
+  processor = if $debug
+                Textpow::DebugProcessor.new
+              else
+                LineProcessor.new
+              end
 
   pos = Vim::Window.current.cursor
   h = Vim::Window.current.height
@@ -150,35 +138,31 @@ def highlight_current_buffer()
   ls = pos[0] - h
   le = pos[0] + h
 
-  if ls < 1
-    ls = 1
-  end
-  if le > lc
-    le = lc
-  end
+  ls = 1 if ls < 1
+  le = lc if le > lc
 
   lines = []
-  for nr in ls..le
+  (ls..le).each do |nr|
     lines << buf[nr]
   end
 
   highlight_lines doc, lines, ls, doc.syntax, processor
 
-  Vim::command("syn off")
+  Vim.command('syn off')
 end
 
-def update_current_buffer()
-  buf = Vim::Buffer.current()
+def update_current_buffer
+  buf = Vim::Buffer.current
   doc = get_doc(buf.number)
   pos = Vim::Window.current.cursor
 
-  # todo account for new lines added.. and copy stack
+  # TODO: account for new lines added.. and copy stack
   block = doc.block_at(pos[0] - 1)
   block.make_dirty
 
-  highlight_current_buffer()
+  highlight_current_buffer
 end
 
-Vim::command("au BufEnter * :ruby highlight_current_buffer")
-Vim::command("au CursorMoved,CursorMovedI * :ruby highlight_current_buffer")
-Vim::command("au TextChanged,TextChangedI * :ruby update_current_buffer")
+Vim.command('au BufEnter * :ruby highlight_current_buffer')
+Vim.command('au CursorMoved,CursorMovedI * :ruby highlight_current_buffer')
+Vim.command('au TextChanged,TextChangedI * :ruby update_current_buffer')
