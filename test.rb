@@ -6,20 +6,22 @@ require "textpow"
 require "./highlight"
 
 # path = "textpow/examples/sample.c"
-# path = "textpow/examples/sample.js"
-path = "vim-textpow.rb"
+path = "textpow/examples/sample.js"
+# path = "vim-textpow.rb"
+# path = "/home/iceman/Developer/Projects/text_edit_superstring/tests/config.json"
 
-# Textpow.load_extensions("/home/iceman/.editor/extensions")
-# syntax = Textpow.syntax_from_filename(path)
-syntax = Textpow.syntax("ruby")
+Textpow.load_extensions("/home/iceman/.editor/extensions")
+syntax = Textpow.syntax_from_filename(path)
+# syntax = Textpow.syntax("ruby")
 
-puts syntax.language
+# puts syntax.language
 
 text = File.read(path)
-# processor = LineProcessor.new
 
 processor = Textpow::DebugProcessor.new
 syntax.parse(text, processor)
+
+# processor = LineProcessor.new
 
 # doc = Doc.new
 # n = 0

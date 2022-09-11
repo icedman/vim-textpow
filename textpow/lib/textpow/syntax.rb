@@ -39,6 +39,10 @@ module Textpow
   class SyntaxNode
     @@syntaxes = {}
 
+    def syntices
+      return @@syntaxes
+    end
+
     attr_accessor :syntax
     attr_accessor :firstLineMatch
     attr_accessor :foldingStartMarker

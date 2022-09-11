@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "./highlight"
+require './highlight'
 require 'logger'
 $log = Logger.new '/tmp/textpow.log'
 
@@ -10,10 +10,10 @@ $props = {}
 
 $scope_hl_map = [
   %w[type StorageClass],
-  ["storage.type", "Identifier"],
+  ['storage.type', 'Identifier'],
   %w[constant Constant],
-  ["constant.numeric", "Number"],
-  ["constant.character", "Character"],
+  ['constant.numeric', 'Number'],
+  ['constant.character', 'Character'],
   %w[primitive Boolean],
   %w[variable StorageClass],
   %w[keyword Define],
@@ -31,10 +31,10 @@ $scope_hl_map = [
   %w[modifier Boolean],
   %w[namespace StorageClass],
   %w[scope StorageClass],
-  ["name.type", "StorageClass"],
+  ['name.type', 'StorageClass'],
   # [ "name.type", "Variable" ],
   %w[tag Tag],
-  ["name.tag", "StorageClass"],
+  ['name.tag', 'StorageClass'],
   %w[attribute StorageClass],
   # [ "attribute", "Variable" ],
   %w[property StorageClass],
@@ -42,7 +42,7 @@ $scope_hl_map = [
   %w[heading markdownH1],
   %w[string String],
   # ["string.other", "Label"],
-  %w[comment Comment],
+  %w[comment Comment]
 ]
 
 # line_nr should be zero based
@@ -60,22 +60,30 @@ def highlight_lines(doc, lines, ls, syntax, processor)
       # $log.debug("hl #{line_nr}")
 
       Vim.command("call prop_clear(#{n})")
-      highlight_line(doc, line_nr, line, syntax, processor)
+
+      if line.length < 500
+        highlight_line(doc, line_nr, line, syntax, processor)
+      else
+        processor.spans = []
+      end
 
       spans = highlight_order_spans(processor.spans, line.length)
 
+      # special comment block and string block handling
       within_comment = spans.length.zero? && doc.is_block_within_comment(line_nr)
       within_string = spans.length.zero? && doc.is_block_within_string(line_nr)
 
-      # special comment block and string block handling
+      # TODO: remove too specific hacks
+      within_string = true if !within_string && spans.length == 1 && (spans[0].tag&.include? 'escape')
+
       if within_comment || within_string
         spans = []
         t = LineProcessor::Tag.new
         if within_comment
-          t.tag = "comment.begin"
+          t.tag = 'comment.begin'
           t.comment_begin = true
         else
-          t.tag = "string.begin"
+          t.tag = 'string.begin'
           t.string_begin = true
         end
         t.start = 0
@@ -148,7 +156,7 @@ def highlight_current_buffer
 
   highlight_lines doc, lines, ls, doc.syntax, processor
 
-  Vim.command("syn off")
+  Vim.command('syn off')
 end
 
 def update_current_buffer
@@ -163,8 +171,8 @@ def update_current_buffer
   highlight_current_buffer
 end
 
-Vim.command("au BufEnter * :ruby highlight_current_buffer")
-Vim.command("au CursorMoved,CursorMovedI * :ruby highlight_current_buffer")
-Vim.command("au TextChanged,TextChangedI * :ruby update_current_buffer")
+Vim.command('au BufEnter * :ruby highlight_current_buffer')
+Vim.command('au CursorMoved,CursorMovedI * :ruby highlight_current_buffer')
+Vim.command('au TextChanged,TextChangedI * :ruby update_current_buffer')
 
-Textpow.load_extensions("/home/iceman/.editor/extensions")
+Textpow.load_extensions('/home/iceman/.editor/extensions')

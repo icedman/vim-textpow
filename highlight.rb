@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-$LOAD_PATH.unshift "textpow/lib"
-require "textpow"
+$LOAD_PATH.unshift 'textpow/lib'
+require 'textpow'
 
 $doc_id = 0xff
 $block_id = 0xff
@@ -29,19 +29,28 @@ class LineProcessor
     t.tag = name
     t.start = position
     t.end = position
-    t.comment_begin = (!name.nil? and name.include? "comment.begin")
-    t.comment_end = (!name.nil? and name.include? "comment.end")
-    t.string_begin = (!name.nil? and name.include? "string.begin")
-    t.string_end = (!name.nil? and name.include? "string.end")
+    t.comment_begin = (!name.nil? and name.include? 'comment.begin')
+    t.comment_end = (!name.nil? and name.include? 'comment.end')
+    t.string_begin = (!name.nil? and name.include? 'string.begin')
+    t.string_end = (!name.nil? and name.include? 'string.end')
+
+    if @stack.length.positive? && !t.comment_begin && name && name.include?('comment') && (@stack.last.tag.include? 'comment.block')
+      t.comment_begin = true
+    end
+
     @stack << t
     @spans << t
   end
 
-  def close_tag(_name, position)
+  def close_tag(name, position)
     if @stack.length.positive?
       last = @stack.last
       last.end = position
       @stack.pop
+    end
+
+    if @stack.length.positive? && name && name.include?('comment.block') && (@stack.last.tag.include? 'comment')
+      @stack.last.comment_end = true
     end
   end
 
@@ -153,8 +162,8 @@ def serialize_state(stack)
   res = []
   stack.each do |s|
     obj = {}
-    obj["syntax"] = s[0]
-    obj["match"] = s[1]
+    obj['syntax'] = s[0]
+    obj['match'] = s[1]
     res << obj
   end
   res
@@ -163,7 +172,7 @@ end
 def unserialize_state(state)
   res = []
   state.each do |s|
-    res << [s["syntax"], s["match"]]
+    res << [s['syntax'], s['match']]
   end
   res
 end
@@ -183,16 +192,14 @@ def highlight_line(doc, line_nr, line, syntax, processor)
 
   stack = nil
   stack = if previous_block.nil? || previous_block.parser_state.nil?
-      [[syntax, nil]]
-    else
-      unserialize_state(previous_block.parser_state)
-    end
+            [[syntax, nil]]
+          else
+            unserialize_state(previous_block.parser_state)
+          end
 
   l = "#{line}\n"
   error = syntax.parse_line_by_line(stack, l, processor)
-  if !error
-    block.parser_state = serialize_state(stack)
-  end
+  block.parser_state = serialize_state(stack) unless error
 
   block.dirty = false
   block
@@ -208,7 +215,7 @@ def highlight_order_spans(spans, length)
     t = nil
 
     spans.each do |s|
-      t = s if (s.start <= i) && (i <= s.end)
+      t = s if (s.start <= i) && (i < s.end)
     end
 
     next if t.nil? || t.tag.nil?
