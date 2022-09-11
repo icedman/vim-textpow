@@ -1,0 +1,3 @@
+[submodule "textpow"]
+	path = textpow
+	url = https://github.com/icedman/textpow

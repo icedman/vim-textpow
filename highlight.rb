@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-$LOAD_PATH.unshift 'textpow/lib'
-require 'textpow'
+$LOAD_PATH.unshift "textpow/lib"
+require "textpow"
 
 $doc_id = 0xff
 $block_id = 0xff
@@ -10,7 +10,7 @@ $block_id = 0xff
 
 class LineProcessor
   class Tag
-    attr_accessor :tag, :start, :end, :comment_begin, :comment_end
+    attr_accessor :tag, :start, :end, :comment_begin, :comment_end, :string_begin, :string_end
   end
 
   attr_accessor :spans
@@ -18,6 +18,10 @@ class LineProcessor
   def initialize
     @stack = []
     @spans = []
+    @comment_begin = false
+    @comment_end = false
+    @string_begin = false
+    @string_end = false
   end
 
   def open_tag(name, position)
@@ -25,8 +29,10 @@ class LineProcessor
     t.tag = name
     t.start = position
     t.end = position + 1
-    t.comment_begin = (!name.nil? and name.include? 'comment.begin')
-    t.comment_end = (!name.nil? and name.include? 'comment.end')
+    t.comment_begin = (!name.nil? and name.include? "comment.begin")
+    t.comment_end = (!name.nil? and name.include? "comment.end")
+    t.string_begin = (!name.nil? and name.include? "string.begin")
+    t.string_end = (!name.nil? and name.include? "string.end")
     @stack << t
     @spans << t
   end
@@ -49,9 +55,13 @@ class LineProcessor
   def end_parsing(name); end
 end
 
+##
+# Doc contains parsers and spans states of a buffer. It tries to mirrow
+# the buffer line for line as a Block
+
 class Doc
   class Block
-    attr_accessor :id, :dirty, :parser_state, :spans, :was_within_comment
+    attr_accessor :id, :dirty, :parser_state, :spans, :prev_spans
 
     def initialize
       @id = $block_id
@@ -62,7 +72,6 @@ class Doc
 
     def make_dirty
       @parser_state = nil
-      @spans = nil
       @dirty = true
     end
   end
@@ -112,6 +121,17 @@ class Doc
     false
   end
 
+  def is_block_within_string(line_nr, limit = 100)
+    (0..limit).each do |n|
+      prev = previous_block(line_nr - n)
+      if !prev.nil? && (!prev.spans.nil? && prev.spans.length.positive?)
+        last = prev.spans.last
+        return last.string_begin
+      end
+    end
+    false
+  end
+
   def remove_block(line_nr)
     block = @blocks[line_nr]
     @blocks.delete_at(line_nr)
@@ -133,8 +153,8 @@ def serialize_state(stack)
   res = []
   stack.each do |s|
     obj = {}
-    obj['syntax'] = s[0]
-    obj['match'] = s[1]
+    obj["syntax"] = s[0]
+    obj["match"] = s[1]
     res << obj
   end
   res
@@ -143,9 +163,17 @@ end
 def unserialize_state(state)
   res = []
   state.each do |s|
-    res << [s['syntax'], s['match']]
+    res << [s["syntax"], s["match"]]
   end
   res
+end
+
+def compare_highlight_spans(prev, current)
+  return false unless prev
+  return false if prev.length != current.length
+  return false if (prev.length.positive? && current.length.positive?) && prev.last.tag != current.last.tag
+
+  true
 end
 
 def highlight_line(doc, line_nr, line, syntax, processor)
@@ -155,17 +183,14 @@ def highlight_line(doc, line_nr, line, syntax, processor)
 
   stack = nil
   stack = if previous_block.nil? || previous_block.parser_state.nil?
-            [[syntax, nil]]
-          else
-            unserialize_state(previous_block.parser_state)
-          end
+      [[syntax, nil]]
+    else
+      unserialize_state(previous_block.parser_state)
+    end
 
   l = "#{line}\n"
   top, match = syntax.parse_line_by_line(stack, l, processor)
   block.parser_state = serialize_state(stack)
-
-  # save open comment and open string
-  # invalidate next block on changed comment and string if necessary
 
   block.dirty = false
   block
@@ -191,6 +216,8 @@ def highlight_order_spans(spans, length)
     tt.start = t.start
     tt.comment_begin = t.comment_begin
     tt.comment_end = t.comment_end
+    tt.string_begin = t.string_begin
+    tt.string_end = t.string_end
     tt.end = length
 
     if res.length.positive? && (res.last.tag == tt.tag)
@@ -201,7 +228,7 @@ def highlight_order_spans(spans, length)
     next if tt.nil?
 
     res.last.end = i if res.length.positive?
-    tt.start = 0 if res.length.zero? && tt.comment_end
+    tt.start = 0 if res.length.zero? && (tt.comment_end || tt.string_end)
     res << tt
   end
 
