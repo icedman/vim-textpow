@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
-$LOAD_PATH.unshift 'textpow/lib'
-require 'textpow'
+require_relative 'textpow/lib/textpow'
 
 $doc_id = 0xff
 $block_id = 0xff

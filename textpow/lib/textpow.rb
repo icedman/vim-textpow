@@ -1,10 +1,10 @@
 require 'yaml'
-require 'textpow/syntax'
-require 'textpow/debug_processor'
-require 'textpow/recording_processor'
-require 'textpow/score_manager'
-require 'textpow/extensions'
-require 'textpow/version'
+require_relative 'textpow/syntax'
+require_relative 'textpow/debug_processor'
+require_relative 'textpow/recording_processor'
+require_relative 'textpow/score_manager'
+require_relative 'textpow/extensions'
+require_relative 'textpow/version'
 
 module Textpow
   class ParsingError < Exception; end

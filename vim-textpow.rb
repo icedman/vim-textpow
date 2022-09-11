@@ -1,7 +1,8 @@
 # frozen_string_literal: true
 
-require './highlight'
+require_relative 'highlight'
 require 'logger'
+
 $log = Logger.new '/tmp/textpow.log'
 
 $extensions = Textpow::Extension.new
@@ -175,4 +176,7 @@ Vim.command('au BufEnter * :ruby highlight_current_buffer')
 Vim.command('au CursorMoved,CursorMovedI * :ruby highlight_current_buffer')
 Vim.command('au TextChanged,TextChangedI * :ruby update_current_buffer')
 
-Textpow.load_extensions('/home/iceman/.editor/extensions')
+Textpow.load_extensions(File.expand_path('~/.vim/plugged/vim-textpow/extensions'))
+Textpow.load_extensions(File.expand_path('~/.vim/ruby/vim-textpow/extensions'))
+
+# puts Textpow::Extension.new.get_extensions

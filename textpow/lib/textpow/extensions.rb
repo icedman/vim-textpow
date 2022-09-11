@@ -12,6 +12,10 @@ module Textpow
 
     @@extensions = []
 
+    def get_extensions()
+      @@extensions
+    end
+
     def load_package(path)
       dirpath = File.dirname(path)
       table = JSON.load_file(path)
