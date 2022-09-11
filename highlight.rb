@@ -28,7 +28,7 @@ class LineProcessor
     t = Tag.new
     t.tag = name
     t.start = position
-    t.end = position + 1
+    t.end = position
     t.comment_begin = (!name.nil? and name.include? "comment.begin")
     t.comment_end = (!name.nil? and name.include? "comment.end")
     t.string_begin = (!name.nil? and name.include? "string.begin")
@@ -189,8 +189,10 @@ def highlight_line(doc, line_nr, line, syntax, processor)
     end
 
   l = "#{line}\n"
-  top, match = syntax.parse_line_by_line(stack, l, processor)
-  block.parser_state = serialize_state(stack)
+  error = syntax.parse_line_by_line(stack, l, processor)
+  if !error
+    block.parser_state = serialize_state(stack)
+  end
 
   block.dirty = false
   block

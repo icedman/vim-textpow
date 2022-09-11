@@ -6,29 +6,33 @@ require "textpow"
 require "./highlight"
 
 # path = "textpow/examples/sample.c"
-path = "textpow/examples/sample.js"
+# path = "textpow/examples/sample.js"
+path = "vim-textpow.rb"
 
-Textpow.load_extensions("/home/iceman/.editor/extensions")
-syntax = Textpow.syntax_from_filename(path)
+# Textpow.load_extensions("/home/iceman/.editor/extensions")
+# syntax = Textpow.syntax_from_filename(path)
+syntax = Textpow.syntax("ruby")
+
+puts syntax.language
 
 text = File.read(path)
-processor = LineProcessor.new
+# processor = LineProcessor.new
 
-# processor = Textpow::DebugProcessor.new
+processor = Textpow::DebugProcessor.new
 syntax.parse(text, processor)
 
-doc = Doc.new
-n = 0
-text.each_line do |line|
-  highlight_line(doc, n, line, syntax, processor)
-  spans = highlight_order_spans processor.spans, line.length()
+# doc = Doc.new
+# n = 0
+# text.each_line do |line|
+#   highlight_line(doc, n, line, syntax, processor)
+#   spans = highlight_order_spans processor.spans, line.length()
 
-  puts line
-  spans.each do |s|
-    puts "#{s.tag} (#{s.start} #{s.end})"
-  end
+#   puts line
+#   spans.each do |s|
+#     puts "#{s.tag} (#{s.start} #{s.end})"
+#   end
 
-  puts "---"
+#   puts "---"
 
-  n += 1
-end
+#   n += 1
+# end

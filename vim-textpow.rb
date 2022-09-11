@@ -1,14 +1,12 @@
 # frozen_string_literal: true
 
 require "./highlight"
-# require 'logger'
+require 'logger'
+$log = Logger.new '/tmp/textpow.log'
 
 $extensions = Textpow::Extension.new
 $doc_buffers = {}
 $props = {}
-
-# $log = Logger.new '/tmp/textpow.log'
-# $log.level = Logger::WARN
 
 $scope_hl_map = [
   %w[type StorageClass],
@@ -43,7 +41,7 @@ $scope_hl_map = [
   # [ "property", "Variable" ],
   %w[heading markdownH1],
   %w[string String],
-  ["string.other", "Label"],
+  # ["string.other", "Label"],
   %w[comment Comment],
 ]
 
@@ -159,7 +157,6 @@ def update_current_buffer
   doc = get_doc(buf.number)
   pos = Vim::Window.current.cursor
 
-  # TODO: account for new lines added.. and copy stack
   block = doc.block_at(pos[0] - 1)
   block.make_dirty
 
