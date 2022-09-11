@@ -47,7 +47,15 @@ def highlight_lines(doc, lines, ls, syntax, processor)
   priority = 0
   lines.each do |line|
     block = doc.block_at line_nr
+    previous_block = doc.previous_block line_nr
+    next_block = doc.next_block line_nr
+
     n = line_nr + 1
+
+    within_comment = doc.is_block_within_comment(line_nr)
+    if block.was_within_comment != within_comment
+      block.make_dirty
+    end
 
     if block.dirty
       Vim::command("call prop_clear(#{n})")
@@ -60,14 +68,26 @@ def highlight_lines(doc, lines, ls, syntax, processor)
 
       spans = highlight_order_spans(spans, line.length)
 
-      spans.each do |t|
+      # special comment block handling
+      if spans.length == 0 and within_comment
+        spans = []
+        t = LineProcessor::Tag.new
+        t.tag = "comment.begin"
+        t.comment_begin = true
+        t.start = 0
+        t.end = line.length
+        spans << t
+      end
 
+      block.was_within_comment = within_comment
+
+      # todo .. dirty-up comment blocks
+
+      block.spans = spans
+
+      spans.each do |t|
         start = t.start + 1
         len = t.end - t.start
-
-        # if pos[0] == n and pos[1] >= t.start and pos[1] < t.end
-        #   puts t.tag
-        # end
 
         hl = nil
         $scope_hl_map.each do |pair|
@@ -90,7 +110,7 @@ def highlight_lines(doc, lines, ls, syntax, processor)
   end
 end
 
-def get_buffer(n)
+def get_doc(n)
   if $doc_buffers[n].nil?
     $doc_buffers[n] = Doc.new
   end
@@ -99,11 +119,14 @@ end
 
 def highlight_current_buffer()
   buf = Vim::Buffer.current()
-  doc = get_buffer(buf.number)
+  doc = get_doc(buf.number)
 
   if doc.syntax.nil?
-    # ext = "js.jquery"
-    ext = "c"
+    ext = "?"
+    fnr = buf.name.split(".")
+    if fnr.length > 0
+      ext = fnr.last
+    end
     doc.syntax = Textpow.syntax(ext)
     if not doc.syntax
       doc.syntax = false
@@ -113,8 +136,6 @@ def highlight_current_buffer()
   if doc.syntax == false
     return
   end
-
-  # doc.make_dirty
 
   if $debug
     processor = Textpow::DebugProcessor.new
@@ -148,9 +169,10 @@ end
 
 def update_current_buffer()
   buf = Vim::Buffer.current()
-  doc = get_buffer(buf.number)
+  doc = get_doc(buf.number)
   pos = Vim::Window.current.cursor
 
+  # todo account for new lines added.. and copy stack
   block = doc.block_at(pos[0] - 1)
   block.make_dirty
 

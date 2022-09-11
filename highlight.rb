@@ -11,6 +11,8 @@ class LineProcessor
     attr_accessor :tag
     attr_accessor :start
     attr_accessor :end
+    attr_accessor :comment_begin
+    attr_accessor :comment_end
   end
 
   attr_accessor :spans
@@ -25,6 +27,8 @@ class LineProcessor
     t.tag = name
     t.start = position
     t.end = position + 1
+    t.comment_begin = (not name.nil? and name.include? "comment.begin")
+    t.comment_end = (not name.nil? and name.include? "comment.end")
     @stack << t
     @spans << t
   end
@@ -54,6 +58,9 @@ class Doc
     attr_accessor :id
     attr_accessor :dirty
     attr_accessor :parser_state
+    attr_accessor :spans
+
+    attr_accessor :was_within_comment
 
     def initialize
       @id = $block_id
@@ -64,6 +71,7 @@ class Doc
 
     def make_dirty
       @parser_state = nil
+      @spans = nil
       @dirty = true
     end
   end
@@ -71,11 +79,6 @@ class Doc
   attr_accessor :id
   attr_accessor :syntax
   attr_accessor :blocks
-
-  attr_accessor :open_block
-  attr_accessor :open_string
-  attr_accessor :prev_open_block
-  attr_accessor :prev_open_string
 
   def initialize
     @id = $doc_id
@@ -115,6 +118,19 @@ class Doc
     block
   end
 
+  def is_block_within_comment(line_nr, limit = 100)
+    for n in 0..limit
+      prev = previous_block(line_nr - n)
+      if not prev.nil?
+        if not prev.spans.nil? and prev.spans.length > 0
+          last = prev.spans.last
+          return last.comment_begin
+        end
+      end
+    end
+    return false
+  end
+
   def remove_block(line_nr)
     block = @blocks[line_nr]
     @blocks.delete_at(line_nr)
@@ -134,26 +150,40 @@ class Doc
   end
 end
 
+def serialize_state(stack)
+  res = []
+  stack.each do |s|
+    obj = {}
+    obj["syntax"] = s[0]
+    obj["match"] = s[1]
+    res << obj
+  end
+  return res
+end
+
+def unserialize_state(state)
+  res = []
+  state.each do |s|
+    res << [s["syntax"], s["match"]]
+  end
+  return res
+end
+
 def highlight_line(doc, line_nr, line, syntax, processor)
   block = doc.block_at line_nr
   next_block = doc.next_block line_nr
   previous_block = doc.previous_block line_nr
-  # puts "#{block} next:#{next_block} prev:#{previous_block}"
 
   stack = nil
   if previous_block.nil? or previous_block.parser_state.nil?
     stack = [[syntax, nil]]
   else
-    stack = previous_block.parser_state
+    stack = unserialize_state(previous_block.parser_state)
   end
 
   l = "#{line}\n"
-  syntax.parse_line_by_line(stack, l, processor)
-  
-  # top, match = stack.last
-  # block.parser_state = [[syntax, nil], [top, match]]
-  # # block.parser_state = []
-  block.parser_state = stack.clone
+  top, match = syntax.parse_line_by_line(stack, l, processor)
+  block.parser_state = serialize_state(stack)
 
   # save open comment and open string
   # invalidate next block on changed comment and string if necessary
@@ -184,11 +214,13 @@ def highlight_order_spans(spans, length)
     tt = LineProcessor::Tag.new
     tt.tag = t.tag
     tt.start = t.start
-    tt.end = t.end
+    tt.comment_begin = t.comment_begin
+    tt.comment_end = t.comment_end
+    tt.end = length
 
     if res.length() > 0
       if res.last.tag == tt.tag
-        res.last.end = t.end
+        res.last.end = length
         tt = nil
       end
     end
@@ -196,6 +228,9 @@ def highlight_order_spans(spans, length)
     if not tt.nil?
       if res.length() > 0
         res.last.end = i
+      end
+      if res.length() == 0 and tt.comment_end
+        tt.start = 0
       end
       res << tt
     end
