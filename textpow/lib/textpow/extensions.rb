@@ -4,25 +4,39 @@ require 'json'
 
 module Textpow
   class Extension
-    attr_accessor :path, :grammars, :themes
+    attr_accessor :path, :grammars, :themes, :name, :displayName, :description, :version, :publisher
 
     class Grammar
       attr_accessor :language, :path, :scopeName, :extensions, :filenames
     end
 
+    class Theme
+      attr_accessor :name, :path, :label, :uiTheme
+    end
+
     @@extensions = []
 
-    def get_extensions()
+    def self.get_extensions
       @@extensions
     end
 
-    def load_package(path)
+    def self.load_package(path)
       dirpath = File.dirname(path)
       table = JSON.load_file(path)
       contributes = table['contributes']
       ext = Extension.new
       ext.path = path
+
+      ext.name = table['name']
+      ext.displayName = table['displayName']
+      ext.description = table['description']
+      ext.version = table['version']
+      ext.publisher = table['publisher']
+      # Textpow.logger().debug(table)
+
       if contributes
+
+        # find grammars
         ext.grammars = []
         grammars = contributes['grammars']
         grammars&.each do |g|
@@ -56,12 +70,26 @@ module Textpow
             end
           end
         end
+
+        # themes
+        ext.themes = []
+        themes = contributes['themes']
+        themes&.each do |t|
+          thm = Theme.new
+          thm.name = t['id']
+          thm.name = t['label'] unless thm.name
+          thm.label = t['label']
+          thm.path = "#{dirpath}/#{t['path']}"
+          thm.uiTheme = t['uiTheme']
+          Textpow.logger.debug(t)
+          ext.themes << thm
+        end
       end
 
       @@extensions << ext if ext.grammars
     end
 
-    def load_extensions(path)
+    def self.load_extensions(path)
       files = Dir["#{path}/*"]
 
       files.each do |f|
@@ -69,11 +97,22 @@ module Textpow
       end
     end
 
-    def grammar_from_filepath(path)
-      if !path
-        return nil
+    def self.theme_from_name(name)
+      @@extensions.each do |ext|
+        next unless ext.themes
+
+        ext.themes.each do |t|
+          thm = t
+          return thm if thm.name && thm.name.downcase == name
+        end
       end
-      
+
+      nil
+    end
+
+    def self.grammar_from_filepath(path)
+      return nil unless path
+
       filename = File.basename(path)
       extension = File.extname(path)
 

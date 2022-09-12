@@ -1,11 +1,7 @@
 # frozen_string_literal: true
 
 require_relative 'highlight'
-require 'logger'
 
-$log = Logger.new '/tmp/textpow.log'
-
-$extensions = Textpow::Extension.new
 $doc_buffers = {}
 $props = {}
 
@@ -58,7 +54,7 @@ def highlight_lines(doc, lines, ls, syntax, processor)
     n = line_nr + 1
 
     if block.dirty
-      # $log.debug("hl #{line_nr}")
+      # Textpow.logger().debug("hl #{line_nr}")
 
       Vim.command("call prop_clear(#{n})")
 
@@ -99,13 +95,25 @@ def highlight_lines(doc, lines, ls, syntax, processor)
       block.prev_spans = spans
       block.spans = spans
 
+      theme = Textpow.theme()
+
       spans.each do |t|
         start = t.start + 1
         len = t.end - t.start
 
         hl = nil
-        $scope_hl_map.each do |pair|
-          hl = pair[1] if t.tag.include? pair[0]
+
+        if theme
+          style = theme.style_for_scope(t.tag)
+          if style
+            fg = style.foreground[1..]
+            hl = fg
+            Vim.command("highlight #{hl} guifg=##{hl}")
+          end
+        else
+          $scope_hl_map.each do |pair|
+            hl = pair[1] if t.tag.include? pair[0]
+          end
         end
 
         next unless hl
@@ -127,13 +135,11 @@ def get_doc(n)
   $doc_buffers[n]
 end
 
-def highlight_current_buffer make_dirty = false
+def highlight_current_buffer(make_dirty = false)
   buf = Vim::Buffer.current
   doc = get_doc(buf.number)
 
-  if make_dirty
-    doc.make_dirty
-  end
+  doc.make_dirty if make_dirty
 
   if doc.syntax.nil?
     doc.syntax = Textpow.syntax_from_filename(buf.name)
@@ -165,7 +171,7 @@ def highlight_current_buffer make_dirty = false
 end
 
 def update_current_buffer
-  # $log.debug('---')
+  # Textpow.logger().debug('--- update ---')
   buf = Vim::Buffer.current
   doc = get_doc(buf.number)
   pos = Vim::Window.current.cursor
@@ -183,4 +189,9 @@ Vim.command('au TextChanged,TextChangedI * :ruby update_current_buffer')
 Textpow.load_extensions(File.expand_path('~/.vim/plugged/vim-textpow/extensions'))
 Textpow.load_extensions(File.expand_path('~/.vim/ruby/vim-textpow/extensions'))
 
-# puts Textpow::Extension.new.get_extensions
+# Textpow.logger().debug(Textpow::Extension.get_extensions)
+# Textpow.logger().debug(Textpow::Extension.theme_from_name("Monokai"))
+
+# Textpow.theme("Red")
+# Textpow.theme("Monokai")
+Textpow.theme('Dracula')

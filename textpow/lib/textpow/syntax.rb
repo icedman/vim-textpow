@@ -1,7 +1,8 @@
 module Textpow
   RUBY_19 = (RUBY_VERSION > "1.9.0")
 end
-require 'oniguruma' unless Textpow::RUBY_19
+
+require "oniguruma" unless Textpow::RUBY_19
 
 $parse_error = false
 
@@ -14,15 +15,15 @@ module Textpow
       @included_name = included_name
     end
 
-    def method_missing method, *args, &block
+    def method_missing(method, *args, &block)
       if @proxy ||= proxy
         @proxy.send(method, *args, &block)
       else
-        STDERR.puts "Failed proxying #{@proxy_name}.#{method}(#{args.join(', ')})" if $DEBUG
+        STDERR.puts "Failed proxying #{@proxy_name}.#{method}(#{args.join(", ")})" if $DEBUG
       end
     end
 
-  private
+    private
 
     def proxy
       case @included_name
@@ -38,10 +39,6 @@ module Textpow
 
   class SyntaxNode
     @@syntaxes = {}
-
-    def syntices
-      return @@syntaxes
-    end
 
     attr_accessor :syntax
     attr_accessor :firstLineMatch
@@ -64,12 +61,12 @@ module Textpow
 
     attr_accessor :language
 
-    def self.load(file, options={})
+    def self.load(file, options = {})
       table = convert_file_to_table(file)
       SyntaxNode.new(table, options)
     end
 
-    def initialize(table, options={})
+    def initialize(table, options = {})
       @syntax = options[:syntax] || self
       @name_space = options[:name_space]
 
@@ -98,7 +95,7 @@ module Textpow
       return $parse_error
     end
 
-  protected
+    protected
 
     def parse_and_store_syntax_info(table)
       table.each do |key, value|
@@ -131,7 +128,7 @@ module Textpow
     end
 
     def parse_regex_with_invalid_chars(value)
-      Regexp.new(value.force_encoding('UTF-8'))
+      Regexp.new(value.force_encoding("UTF-8"), nil, "n")
     rescue RegexpError => e
       if e.message =~ /UTF-8/ or e.message =~ /invalid multibyte escape/
         puts "Ignored utf8 regex error #{$!}"
@@ -143,9 +140,8 @@ module Textpow
 
         $parse_error = true
         # '^\\x{00}-\\x{7F}'
-        Regexp.new('123@abc')
+        Regexp.new("123@abc")
       end
-
     end
 
     # register in global syntax list -> can be found by include
@@ -157,15 +153,15 @@ module Textpow
     def self.convert_file_to_table(file)
       raise "File not found: #{file}" unless File.exist?(file)
       table = case file
-      when /(\.tmSyntax|\.plist)$/
-        require 'plist'
-        Plist::parse_xml(file)
-      when /(\.json)$/
-        require 'json'
-        JSON.load_file(file)
-      else
-        YAML.load_file(file)
-      end
+        when /(\.tmSyntax|\.plist)$/
+          require "plist"
+          Plist::parse_xml(file)
+        when /(\.json)$/
+          require "json"
+          JSON.load_file(file)
+        else
+          YAML.load_file(file)
+        end
       raise "Could not parse file #{file} to a table" if table.is_a?(String)
       table
     end
@@ -191,24 +187,24 @@ module Textpow
       end
     end
 
-    def parse_captures name, pattern, match, processor
-      captures = pattern.match_captures( name, match )
-      captures.reject! { |group, range, name| ! range.first || range.first == range.last }
+    def parse_captures(name, pattern, match, processor)
+      captures = pattern.match_captures(name, match)
+      captures.reject! { |group, range, name| !range.first || range.first == range.last }
       starts = []
       ends = []
       captures.each do |group, range, name|
         starts << [range.first, group, name]
-        ends   << [range.last, -group, name]
+        ends << [range.last, -group, name]
       end
 
-#          STDERR.puts '-' * 100
-#          starts.sort!.reverse!.each{|c| STDERR.puts c.join(', ')}
-#          STDERR.puts 
-#          ends.sort!.reverse!.each{|c| STDERR.puts c.join(', ')}
+      #          STDERR.puts '-' * 100
+      #          starts.sort!.reverse!.each{|c| STDERR.puts c.join(', ')}
+      #          STDERR.puts
+      #          ends.sort!.reverse!.each{|c| STDERR.puts c.join(', ')}
       starts.sort!.reverse!
       ends.sort!.reverse!
 
-      while ! starts.empty? || ! ends.empty?
+      while !starts.empty? || !ends.empty?
         if starts.empty?
           pos, key, name = ends.pop
           processor.close_tag name, pos
@@ -225,47 +221,47 @@ module Textpow
       end
     end
 
-    def match_captures name, match
+    def match_captures(name, match)
       matches = []
       captures = instance_variable_get "@#{name}"
       if captures
         captures.each do |key, value|
           if key =~ /^\d*$/
-            matches << [key.to_i, match.offset( key.to_i ), value["name"]] if key.to_i < match.size
+            matches << [key.to_i, match.offset(key.to_i), value["name"]] if key.to_i < match.size
           else
-            matches << [match.to_index( key.to_sym ), match.offset( key.to_sym), value["name"]] if match.to_index( key.to_sym )
+            matches << [match.to_index(key.to_sym), match.offset(key.to_sym), value["name"]] if match.to_index(key.to_sym)
           end
         end
       end
       matches
     end
 
-    def match_first string, position
+    def match_first(string, position)
       if self.match
-        if match = self.match.match( string, position )
+        if match = self.match.match(string, position)
           return [self, match]
         end
       elsif self.begin
-        if match = self.begin.match( string, position )
+        if match = self.begin.match(string, position)
           return [self, match]
         end
       elsif self.end
       else
-        return match_first_son( string, position )
+        return match_first_son(string, position)
       end
       nil
     end
 
-    def match_end string, match, position
+    def match_end(string, match, position)
       regstring = self.end.clone
-      regstring.gsub!( /\\([1-9])/ ) { |s| match[$1.to_i] }
+      regstring.gsub!(/\\([1-9])/) { |s| match[$1.to_i] }
 
       # in spox-textpow this is \\g in 1.9 !?
-      regstring.gsub!( /\\k<(.*?)>/ ) { |s| match[$1.to_sym] }
+      regstring.gsub!(/\\k<(.*?)>/) { |s| match[$1.to_sym] }
       if Textpow::RUBY_19
-        parse_regex_with_invalid_chars( regstring ).match( string, position )
+        parse_regex_with_invalid_chars(regstring).match(string, position)
       else
-        Oniguruma::ORegexp.new( regstring ).match( string, position )
+        Oniguruma::ORegexp.new(regstring).match(string, position)
       end
     end
 
@@ -303,7 +299,7 @@ module Textpow
         end
 
         if top.end
-          end_match = top.match_end( line, match, position )
+          end_match = top.match_end(line, match, position)
         end
 
         if end_match and (not pattern_match or match_offset(pattern_match).first >= match_offset(end_match).first)
